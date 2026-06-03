@@ -11,12 +11,13 @@ use crate::image::hdr_from_developed;
 /// Default HDR headroom (OQ-1): full-scale maps to 4x SDR white (2 stops).
 pub const DEFAULT_HDR_HEADROOM: f32 = 4.0;
 
-/// Errors spanning the whole conversion.
+/// Errors spanning the whole conversion. The source error carries the detail;
+/// these messages name the stage (avoids duplicating the cause in the chain).
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("develop stage failed: {0}")]
+    #[error("develop stage failed")]
     Develop(#[from] crate::develop::DevelopError),
-    #[error("encode stage failed: {0}")]
+    #[error("encode stage failed")]
     Encode(#[from] uhdr::Error),
 }
 

@@ -81,17 +81,28 @@ You can also point the build at specific prebuilt libraries:
 
 ## Usage
 
-Single-file conversion works today:
-
 ```bash
+# Single file
 dng2uhdr input.dng -o output.jpg
+
+# Whole directory in parallel, into an output directory
+dng2uhdr photos/ -o out/
+
+# Recurse into subdirectories (mirrored under the output directory)
+dng2uhdr photos/ -o out/ --recursive
+
+# Multiple inputs; outputs land next to each source when -o is omitted
+dng2uhdr a.dng b.dng c.dng
 ```
 
 Available options:
 
 ```bash
-dng2uhdr [OPTIONS] <INPUT>
-  -o, --output <PATH>              # output (default: input with .jpg extension)
+dng2uhdr [OPTIONS] <INPUTS>...
+  -o, --output <PATH>              # output file (single) or directory (batch)
+      --suffix <S>                 # append to each output stem (before .jpg)
+  -r, --recursive                  # recurse into input directories
+  -j, --jobs <N>                   # parallel conversions (default: # CPUs)
       --wb <camera|auto>           # white balance
       --wb-mul <R> <G> <B> <G2>    # custom WB multipliers (overrides --wb)
       --exposure <EV>              # exposure compensation in stops (e.g. -1.0, +1.5)
@@ -101,9 +112,13 @@ dng2uhdr [OPTIONS] <INPUT>
       --quality <0-100>            # base JPEG quality (default: 95)
       --gainmap-scale <N>          # gain-map downscale factor
       --no-exif                    # do not copy camera EXIF into the output
-      --overwrite                  # overwrite an existing output
+      --overwrite                  # overwrite existing outputs (else skipped)
   -v, --verbose                    # -v info, -vv debug
 ```
+
+When scanning directories, `*.dng` files are picked up. In batch mode `-o` is an
+output directory; existing outputs are skipped unless `--overwrite` is given.
+The exit code is `0` on success, `1` if any file failed, `2` for usage errors.
 
 Camera EXIF metadata (make, model, capture time, exposure, aperture, ISO,
 focal length) is copied into the output by default; pass `--no-exif` to omit it.
@@ -112,8 +127,7 @@ upright (EXIF orientation = 1).
 
 Develop adjustments (WB, exposure, color space, highlights) change the rendition
 but never affect HDR output — the gain map is always computed from whatever you
-produce. Batch mode, recursive directories, parallelism, and EXIF/orientation
-carry-over are planned for M2/M3 (see [`DESIGN.md`](DESIGN.md) §7).
+produce.
 
 > **Note on look:** development is intentionally neutral (linear, no camera tone
 > curve), so the result will not match your camera's JPEG grading. `--exposure`
