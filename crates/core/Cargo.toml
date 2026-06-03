@@ -11,3 +11,7 @@ uhdr.workspace = true
 libraw-dev.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+half.workspace = true
+
+[dev-dependencies]
+uhdr.workspace = true

@@ -307,7 +307,7 @@ General:
 
 ## 12. Milestones
 1. **M0 — Skeleton: DONE.** Workspace scaffolded (`uhdr-sys`, `uhdr`, `libraw-sys`, `libraw-dev`, `core`, `cli`); `third_party/` submodules pinned (libultrahdr v1.4.0, LibRaw 0.22.1); vendored static builds wired into `uhdr-sys` (cmake, `UHDR_BUILD_DEPS=ON`) and `libraw-sys` (cc), both with system/env override paths; FFI smoke test green (synthetic half-float HDR → valid Ultra HDR JPEG, verified via `is_uhdr_image`). Build notes: needed `CMAKE_POLICY_VERSION_MINIMUM=3.5` for libjpeg-turbo 3.0.1 under CMake 4.x, and a forced `-include cstdint` for both libs under GCC 16's leaner libstdc++.
-2. **M1 — Develop path:** LibRaw integration → linear Rec.2020 16-bit → half-float; one DNG → Ultra HDR end-to-end.
+2. **M1 — Develop path: DONE.** `libraw-dev` develops raw → linear Rec.2020 16-bit (LibRaw: linear gamma, `output_color=8`, 16-bit, no auto-bright, camera WB); `core` converts to RGBA half-float (headroom anchor, OQ-1, default 4.0) and encodes via the `Developer`/`HdrEncoder` traits + `Pipeline`; minimal CLI runs a single DNG end-to-end. Validated on a 12 MP Pixel DNG (4012×3020 → valid Ultra HDR, gain map present, ~1s). Full resolution preserved.
 3. **M2 — CLI:** flags, single-file, error handling, EXIF/orientation.
 4. **M3 — Batch + parallelism + quality knobs.**
 5. **M4 — Validation pass:** resolve OQ-1/2/3, golden tests, docs.
