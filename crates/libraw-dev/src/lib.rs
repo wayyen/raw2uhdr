@@ -6,10 +6,14 @@
 //! scene-linear data in a wide gamut, ready to be normalized to half-float.
 
 use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 use std::path::Path;
 
 use libraw_sys as sys;
 use thiserror::Error;
+
+pub mod exif;
+pub use exif::{build_exif, RawMetadata};
 
 /// Errors from the develop stage.
 #[derive(Debug, Error)]
@@ -128,6 +132,8 @@ pub struct DevelopedImage {
     pub width: u32,
     pub height: u32,
     pub color_space: ColorSpace,
+    /// Camera metadata parsed from the raw file (for EXIF carry-over).
+    pub metadata: RawMetadata,
     pub data: Vec<u16>,
 }
 
@@ -153,6 +159,8 @@ pub fn develop_file(path: &Path, opts: &DevelopOptions) -> Result<DevelopedImage
 
         check(sys::libraw_open_file(ctx, cpath.as_ptr()))?;
         check(sys::libraw_unpack(ctx))?;
+
+        let metadata = extract_metadata(&*ctx);
 
         configure(&mut (*ctx).params, opts);
 
@@ -184,9 +192,35 @@ pub fn develop_file(path: &Path, opts: &DevelopOptions) -> Result<DevelopedImage
             width: img.width as u32,
             height: img.height as u32,
             color_space: opts.color_space,
+            metadata,
             data,
         })
     }
+}
+
+/// Read curated camera metadata from a LibRaw context (after `unpack`).
+unsafe fn extract_metadata(ctx: &sys::libraw_data_t) -> RawMetadata {
+    let pos = |v: f32| (v > 0.0).then_some(v);
+    RawMetadata {
+        make: c_array_to_string(ctx.idata.make.as_ptr(), ctx.idata.make.len()),
+        model: c_array_to_string(ctx.idata.model.as_ptr(), ctx.idata.model.len()),
+        software: c_array_to_string(ctx.idata.software.as_ptr(), ctx.idata.software.len()),
+        timestamp: (ctx.other.timestamp != 0).then_some(ctx.other.timestamp as i64),
+        exposure_time: pos(ctx.other.shutter),
+        fnumber: pos(ctx.other.aperture),
+        iso: pos(ctx.other.iso_speed),
+        focal_len: pos(ctx.other.focal_len),
+    }
+}
+
+/// Convert a fixed-size C char array (NUL-terminated) to a `String`.
+unsafe fn c_array_to_string(ptr: *const c_char, max: usize) -> String {
+    let mut len = 0;
+    while len < max && *ptr.add(len) != 0 {
+        len += 1;
+    }
+    let bytes = std::slice::from_raw_parts(ptr as *const u8, len);
+    String::from_utf8_lossy(bytes).trim().to_string()
 }
 
 /// Apply our fixed development policy plus user options to LibRaw params.

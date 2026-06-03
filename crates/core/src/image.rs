@@ -77,6 +77,7 @@ mod tests {
             width: 2,
             height: 1,
             color_space: ColorSpace::Rec2020,
+            metadata: Default::default(),
             data: vec![16384, 16384, 16384, 65535, 65535, 65535],
         };
         let headroom = 4.0;
@@ -104,6 +105,7 @@ mod tests {
             width: 1,
             height: 1,
             color_space: ColorSpace::Rec2020,
+            metadata: Default::default(),
             data: vec![65535, 65535, 65535],
         };
         // Absurd headroom would exceed the nominal ceiling; must be clamped.

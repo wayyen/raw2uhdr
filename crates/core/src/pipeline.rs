@@ -26,6 +26,8 @@ pub struct Pipeline<D: Developer, E: HdrEncoder> {
     pub developer: D,
     pub encoder: E,
     pub hdr_headroom: f32,
+    /// Carry the source's camera metadata into the output as EXIF.
+    pub keep_exif: bool,
 }
 
 impl Default for Pipeline<LibRawDeveloper, UltraHdrEncoder> {
@@ -34,6 +36,7 @@ impl Default for Pipeline<LibRawDeveloper, UltraHdrEncoder> {
             developer: LibRawDeveloper::default(),
             encoder: UltraHdrEncoder::default(),
             hdr_headroom: DEFAULT_HDR_HEADROOM,
+            keep_exif: true,
         }
     }
 }
@@ -45,10 +48,14 @@ impl<D: Developer, E: HdrEncoder> Pipeline<D, E> {
         let developed = self.developer.develop(input)?;
         tracing::debug!(width = developed.width, height = developed.height, "developed");
 
+        let exif = self
+            .keep_exif
+            .then(|| libraw_dev::build_exif(&developed.metadata));
+
         let hdr = hdr_from_developed(&developed, self.hdr_headroom);
 
         tracing::debug!("encoding ultra hdr");
-        let jpeg = self.encoder.encode(&hdr)?;
+        let jpeg = self.encoder.encode(&hdr, exif.as_deref())?;
         tracing::debug!(bytes = jpeg.len(), "encoded");
         Ok(jpeg)
     }

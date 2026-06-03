@@ -54,6 +54,10 @@ struct Cli {
     #[arg(long, default_value_t = 1)]
     gainmap_scale: i32,
 
+    /// Do not copy camera EXIF metadata into the output.
+    #[arg(long)]
+    no_exif: bool,
+
     /// Overwrite the output if it already exists.
     #[arg(long)]
     overwrite: bool,
@@ -89,6 +93,10 @@ enum CsArg {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
+
+    if !cli.input.is_file() {
+        anyhow::bail!("input file not found: {}", cli.input.display());
+    }
 
     let output = cli.output.clone().unwrap_or_else(|| cli.input.with_extension("jpg"));
     if output.exists() && !cli.overwrite {
@@ -129,6 +137,7 @@ fn main() -> Result<()> {
         developer: LibRawDeveloper::new(options),
         encoder: UltraHdrEncoder { quality: cli.quality, gainmap_scale: cli.gainmap_scale },
         hdr_headroom: cli.hdr_headroom,
+        keep_exif: !cli.no_exif,
     };
 
     let jpeg = pipeline

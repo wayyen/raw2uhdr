@@ -132,6 +132,24 @@ impl Encoder {
         check(info)
     }
 
+    /// Provide EXIF data to embed in the output.
+    ///
+    /// `data` is the EXIF payload as it appears after the APP1 marker+length,
+    /// i.e. it must begin with the `Exif\0\0` identifier followed by the TIFF
+    /// structure. libultrahdr writes the APP1 marker and length itself and
+    /// places the segment correctly relative to its gain-map metadata.
+    ///
+    /// The data must remain valid until [`Encoder::encode`] returns.
+    pub fn set_exif(&mut self, data: &[u8]) -> Result<()> {
+        let mut block = uhdr_sys::uhdr_mem_block_t {
+            data: data.as_ptr() as *mut c_void,
+            data_sz: data.len(),
+            capacity: data.len(),
+        };
+        let info = unsafe { uhdr_sys::uhdr_enc_set_exif_data(self.ptr, &mut block) };
+        check(info)
+    }
+
     /// Run the encode and return an owned copy of the Ultra HDR JPEG bytes.
     pub fn encode(&mut self) -> Result<Vec<u8>> {
         check(unsafe { uhdr_sys::uhdr_encode(self.ptr) })?;

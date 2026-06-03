@@ -100,9 +100,15 @@ dng2uhdr [OPTIONS] <INPUT>
       --hdr-headroom <F>           # HDR boost vs SDR white (default: 4.0)
       --quality <0-100>            # base JPEG quality (default: 95)
       --gainmap-scale <N>          # gain-map downscale factor
+      --no-exif                    # do not copy camera EXIF into the output
       --overwrite                  # overwrite an existing output
   -v, --verbose                    # -v info, -vv debug
 ```
+
+Camera EXIF metadata (make, model, capture time, exposure, aperture, ISO,
+focal length) is copied into the output by default; pass `--no-exif` to omit it.
+Orientation is baked into the pixels during development, so the output is always
+upright (EXIF orientation = 1).
 
 Develop adjustments (WB, exposure, color space, highlights) change the rendition
 but never affect HDR output — the gain map is always computed from whatever you

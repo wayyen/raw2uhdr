@@ -37,4 +37,17 @@ fn dng_converts_to_valid_ultrahdr() {
         uhdr::is_ultrahdr(&jpeg),
         "output is a JPEG but not a valid Ultra HDR image (no gain map)"
     );
+
+    // EXIF must round-trip out of the produced JPEG (Pipeline::default keeps it).
+    let exif = exif::Reader::new()
+        .read_from_container(&mut std::io::Cursor::new(&jpeg))
+        .expect("output has no parseable EXIF");
+    let make = exif
+        .get_field(exif::Tag::Make, exif::In::PRIMARY)
+        .expect("EXIF Make missing");
+    eprintln!("EXIF Make = {}", make.display_value());
+    // Orientation must be normal (1): LibRaw bakes the camera flip into pixels.
+    if let Some(o) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY) {
+        assert_eq!(o.value.get_uint(0), Some(1), "output orientation should be 1");
+    }
 }

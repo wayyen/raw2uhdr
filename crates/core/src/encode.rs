@@ -8,8 +8,10 @@ use uhdr::{ColorRange, ColorTransfer, Encoder, ImgFmt, ImgLabel, RawImage};
 use crate::image::HdrImage;
 
 /// Encodes an HDR rendition into a final compressed container.
+///
+/// `exif`, when present, is an EXIF payload (`Exif\0\0` + TIFF) to embed.
 pub trait HdrEncoder {
-    fn encode(&self, img: &HdrImage) -> Result<Vec<u8>, uhdr::Error>;
+    fn encode(&self, img: &HdrImage, exif: Option<&[u8]>) -> Result<Vec<u8>, uhdr::Error>;
 }
 
 /// Ultra HDR encoder (API-0): libultrahdr derives the SDR base and gain map
@@ -29,7 +31,7 @@ impl Default for UltraHdrEncoder {
 }
 
 impl HdrEncoder for UltraHdrEncoder {
-    fn encode(&self, img: &HdrImage) -> Result<Vec<u8>, uhdr::Error> {
+    fn encode(&self, img: &HdrImage, exif: Option<&[u8]>) -> Result<Vec<u8>, uhdr::Error> {
         let raw = RawImage {
             width: img.width,
             height: img.height,
@@ -46,6 +48,9 @@ impl HdrEncoder for UltraHdrEncoder {
         enc.set_quality(self.quality, ImgLabel::UHDR_BASE_IMG)?;
         if self.gainmap_scale > 1 {
             enc.set_gainmap_scale_factor(self.gainmap_scale)?;
+        }
+        if let Some(exif) = exif {
+            enc.set_exif(exif)?;
         }
         enc.encode()
     }
