@@ -5,7 +5,7 @@
 
 use uhdr::{ColorRange, ColorTransfer, Encoder, ImgFmt, ImgLabel, RawImage};
 
-use crate::image::HdrImage;
+use crate::image::{HdrImage, SDR_WHITE_NITS};
 
 /// Encodes an HDR rendition into a final compressed container.
 ///
@@ -46,6 +46,17 @@ impl HdrEncoder for UltraHdrEncoder {
         let mut enc = Encoder::new()?;
         enc.set_raw_image(&raw, ImgLabel::UHDR_HDR_IMG)?;
         enc.set_quality(self.quality, ImgLabel::UHDR_BASE_IMG)?;
+
+        // Tie the gain map's HDR capacity to the headroom we actually produced.
+        // For a linear HDR intent libultrahdr otherwise leaves hdr_capacity_max
+        // at the 10000-nit (~49x) encoding ceiling, which makes displays apply
+        // only a fraction of the intended boost (DESIGN.md §5.2). The per-pixel
+        // gains already reflect our headroom; this aligns the capacity signal.
+        if img.headroom > 1.0 {
+            let nits = (img.headroom * SDR_WHITE_NITS).clamp(SDR_WHITE_NITS, 10_000.0);
+            enc.set_target_display_peak_brightness(nits)?;
+        }
+
         if self.gainmap_scale > 1 {
             enc.set_gainmap_scale_factor(self.gainmap_scale)?;
         }

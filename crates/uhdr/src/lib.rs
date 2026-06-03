@@ -132,6 +132,24 @@ impl Encoder {
         check(info)
     }
 
+    /// Set the target display peak brightness in nits (range [203, 10000]).
+    ///
+    /// For a linear/PQ HDR intent libultrahdr otherwise assumes a 10000-nit
+    /// peak, which pins the gain map's HDR capacity to its maximum regardless of
+    /// content. Setting this to `203 * headroom` ties the encoded HDR capacity
+    /// to the headroom we actually produced.
+    pub fn set_target_display_peak_brightness(&mut self, nits: f32) -> Result<()> {
+        let info =
+            unsafe { uhdr_sys::uhdr_enc_set_target_display_peak_brightness(self.ptr, nits) };
+        check(info)
+    }
+
+    /// Recommend the min/max content boost (linear) for the gain map.
+    pub fn set_min_max_content_boost(&mut self, min: f32, max: f32) -> Result<()> {
+        let info = unsafe { uhdr_sys::uhdr_enc_set_min_max_content_boost(self.ptr, min, max) };
+        check(info)
+    }
+
     /// Provide EXIF data to embed in the output.
     ///
     /// `data` is the EXIF payload as it appears after the APP1 marker+length,
@@ -177,6 +195,77 @@ impl Drop for Encoder {
 /// gain-map metadata).
 pub fn is_ultrahdr(data: &[u8]) -> bool {
     unsafe { uhdr_sys::is_uhdr_image(data.as_ptr() as *mut c_void, data.len() as i32) == 1 }
+}
+
+/// Gain-map metadata and image geometry, read back from an Ultra HDR stream.
+#[derive(Debug, Clone)]
+pub struct GainMapInfo {
+    pub base_width: i32,
+    pub base_height: i32,
+    pub gainmap_width: i32,
+    pub gainmap_height: i32,
+    /// Per-channel maximum content boost (linear).
+    pub max_content_boost: [f32; 3],
+    /// Per-channel minimum content boost (linear).
+    pub min_content_boost: [f32; 3],
+    pub gamma: [f32; 3],
+    pub hdr_capacity_min: f32,
+    pub hdr_capacity_max: f32,
+}
+
+/// Parse (without fully decoding pixels) an Ultra HDR stream and return its
+/// gain-map metadata and geometry. Useful for validating encoder output.
+pub fn probe(data: &[u8]) -> Result<GainMapInfo> {
+    unsafe {
+        let dec = uhdr_sys::uhdr_create_decoder();
+        if dec.is_null() {
+            return Err(Error {
+                code: uhdr_sys::uhdr_codec_err::UHDR_CODEC_MEM_ERROR,
+                detail: "uhdr_create_decoder returned null".into(),
+            });
+        }
+        let _dec = DecoderHandle(dec);
+
+        let mut img = uhdr_sys::uhdr_compressed_image_t {
+            data: data.as_ptr() as *mut c_void,
+            data_sz: data.len(),
+            capacity: data.len(),
+            cg: uhdr_sys::uhdr_color_gamut::UHDR_CG_UNSPECIFIED,
+            ct: uhdr_sys::uhdr_color_transfer::UHDR_CT_UNSPECIFIED,
+            range: uhdr_sys::uhdr_color_range::UHDR_CR_UNSPECIFIED,
+        };
+        check(uhdr_sys::uhdr_dec_set_image(dec, &mut img))?;
+        check(uhdr_sys::uhdr_dec_probe(dec))?;
+
+        let meta = uhdr_sys::uhdr_dec_get_gainmap_metadata(dec);
+        if meta.is_null() {
+            return Err(Error {
+                code: uhdr_sys::uhdr_codec_err::UHDR_CODEC_ERROR,
+                detail: "no gain-map metadata".into(),
+            });
+        }
+        let meta = &*meta;
+
+        Ok(GainMapInfo {
+            base_width: uhdr_sys::uhdr_dec_get_image_width(dec),
+            base_height: uhdr_sys::uhdr_dec_get_image_height(dec),
+            gainmap_width: uhdr_sys::uhdr_dec_get_gainmap_width(dec),
+            gainmap_height: uhdr_sys::uhdr_dec_get_gainmap_height(dec),
+            max_content_boost: meta.max_content_boost,
+            min_content_boost: meta.min_content_boost,
+            gamma: meta.gamma,
+            hdr_capacity_min: meta.hdr_capacity_min,
+            hdr_capacity_max: meta.hdr_capacity_max,
+        })
+    }
+}
+
+/// RAII handle for a decoder instance.
+struct DecoderHandle(*mut uhdr_sys::uhdr_codec_private_t);
+impl Drop for DecoderHandle {
+    fn drop(&mut self) {
+        unsafe { uhdr_sys::uhdr_release_decoder(self.0) };
+    }
 }
 
 fn bytes_per_pixel(fmt: ImgFmt) -> usize {

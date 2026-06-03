@@ -9,8 +9,8 @@ use std::process::ExitCode;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
 use dng2uhdr_core::{
-    ColorSpace, DevelopOptions, Highlight, LibRawDeveloper, Pipeline, UltraHdrEncoder,
-    WhiteBalance, DEFAULT_HDR_HEADROOM,
+    ColorSpace, DevelopOptions, HdrAnchor, Highlight, LibRawDeveloper, Pipeline, UltraHdrEncoder,
+    WhiteBalance, DEFAULT_MAX_HEADROOM,
 };
 use rayon::prelude::*;
 
@@ -60,9 +60,14 @@ struct Cli {
     #[arg(long, value_enum, default_value_t = HlArg::Clip)]
     highlight: HlArg,
 
-    /// HDR headroom: linear multiplier between SDR white (1.0) and full scale.
-    #[arg(long, default_value_t = DEFAULT_HDR_HEADROOM)]
-    hdr_headroom: f32,
+    /// HDR headroom: "auto" (content-aware) or a fixed multiple of SDR white
+    /// that full-scale maps to (e.g. 4.0).
+    #[arg(long, default_value = "auto")]
+    hdr_headroom: String,
+
+    /// Luminance percentile mapped to SDR white in auto mode (0-100).
+    #[arg(long, default_value_t = dng2uhdr_core::DEFAULT_AUTO_PERCENTILE)]
+    hdr_white_percentile: f32,
 
     /// Base-image JPEG quality (0-100).
     #[arg(long, default_value_t = 95)]
@@ -302,10 +307,23 @@ fn build_pipeline(cli: &Cli) -> Result<Pipeline<LibRawDeveloper, UltraHdrEncoder
         ..DevelopOptions::default()
     };
 
+    let hdr_anchor = if cli.hdr_headroom.eq_ignore_ascii_case("auto") {
+        HdrAnchor::AutoPercentile {
+            percentile: cli.hdr_white_percentile,
+            max_headroom: DEFAULT_MAX_HEADROOM,
+        }
+    } else {
+        let h: f32 = cli
+            .hdr_headroom
+            .parse()
+            .with_context(|| format!("--hdr-headroom must be \"auto\" or a number, got {:?}", cli.hdr_headroom))?;
+        HdrAnchor::Fixed(h)
+    };
+
     Ok(Pipeline {
         developer: LibRawDeveloper::new(options),
         encoder: UltraHdrEncoder { quality: cli.quality, gainmap_scale: cli.gainmap_scale },
-        hdr_headroom: cli.hdr_headroom,
+        hdr_anchor,
         keep_exif: !cli.no_exif,
     })
 }

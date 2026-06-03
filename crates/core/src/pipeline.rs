@@ -6,10 +6,22 @@ use thiserror::Error;
 
 use crate::develop::{Developer, LibRawDeveloper};
 use crate::encode::{HdrEncoder, UltraHdrEncoder};
-use crate::image::hdr_from_developed;
+use crate::image::{hdr_from_developed, resolve_headroom, HdrAnchor};
 
-/// Default HDR headroom (OQ-1): full-scale maps to 4x SDR white (2 stops).
+/// Default fixed HDR headroom when a fixed anchor is requested (2 stops).
 pub const DEFAULT_HDR_HEADROOM: f32 = 4.0;
+
+/// Default luminance percentile for the content-aware anchor.
+pub const DEFAULT_AUTO_PERCENTILE: f32 = 99.0;
+
+/// Default cap on auto-derived headroom (3 stops).
+pub const DEFAULT_MAX_HEADROOM: f32 = 8.0;
+
+/// The default anchor: content-aware (OQ-1 resolution).
+pub const DEFAULT_HDR_ANCHOR: HdrAnchor = HdrAnchor::AutoPercentile {
+    percentile: DEFAULT_AUTO_PERCENTILE,
+    max_headroom: DEFAULT_MAX_HEADROOM,
+};
 
 /// Errors spanning the whole conversion. The source error carries the detail;
 /// these messages name the stage (avoids duplicating the cause in the chain).
@@ -26,7 +38,7 @@ pub enum Error {
 pub struct Pipeline<D: Developer, E: HdrEncoder> {
     pub developer: D,
     pub encoder: E,
-    pub hdr_headroom: f32,
+    pub hdr_anchor: HdrAnchor,
     /// Carry the source's camera metadata into the output as EXIF.
     pub keep_exif: bool,
 }
@@ -36,7 +48,7 @@ impl Default for Pipeline<LibRawDeveloper, UltraHdrEncoder> {
         Pipeline {
             developer: LibRawDeveloper::default(),
             encoder: UltraHdrEncoder::default(),
-            hdr_headroom: DEFAULT_HDR_HEADROOM,
+            hdr_anchor: DEFAULT_HDR_ANCHOR,
             keep_exif: true,
         }
     }
@@ -53,7 +65,9 @@ impl<D: Developer, E: HdrEncoder> Pipeline<D, E> {
             .keep_exif
             .then(|| libraw_dev::build_exif(&developed.metadata));
 
-        let hdr = hdr_from_developed(&developed, self.hdr_headroom);
+        let headroom = resolve_headroom(&developed, self.hdr_anchor);
+        tracing::debug!(headroom, "resolved hdr headroom");
+        let hdr = hdr_from_developed(&developed, headroom);
 
         tracing::debug!("encoding ultra hdr");
         let jpeg = self.encoder.encode(&hdr, exif.as_deref())?;

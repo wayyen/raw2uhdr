@@ -107,8 +107,9 @@ dng2uhdr [OPTIONS] <INPUTS>...
       --wb-mul <R> <G> <B> <G2>    # custom WB multipliers (overrides --wb)
       --exposure <EV>              # exposure compensation in stops (e.g. -1.0, +1.5)
       --color-space <srgb|p3|rec2020>  # output primaries (default: rec2020)
-      --highlight <clip|blend|rebuild> # highlight handling
-      --hdr-headroom <F>           # HDR boost vs SDR white (default: 4.0)
+      --highlight <clip|blend|rebuild> # highlight handling (blend recovers more HDR)
+      --hdr-headroom <auto|F>      # HDR headroom: content-aware (default) or fixed multiple
+      --hdr-white-percentile <P>   # luminance percentile = SDR white in auto mode (default 99)
       --quality <0-100>            # base JPEG quality (default: 95)
       --gainmap-scale <N>          # gain-map downscale factor
       --no-exif                    # do not copy camera EXIF into the output

@@ -12,6 +12,9 @@ pub mod pipeline;
 
 pub use develop::{Developer, Highlight, LibRawDeveloper, WhiteBalance};
 pub use encode::{HdrEncoder, UltraHdrEncoder};
-pub use image::{hdr_from_developed, HdrImage};
+pub use image::{hdr_from_developed, resolve_headroom, HdrAnchor, HdrImage};
 pub use libraw_dev::{ColorSpace, DevelopError, DevelopOptions, DevelopedImage, RawMetadata};
-pub use pipeline::{Error, Pipeline, DEFAULT_HDR_HEADROOM};
+pub use pipeline::{
+    Error, Pipeline, DEFAULT_AUTO_PERCENTILE, DEFAULT_HDR_ANCHOR, DEFAULT_HDR_HEADROOM,
+    DEFAULT_MAX_HEADROOM,
+};

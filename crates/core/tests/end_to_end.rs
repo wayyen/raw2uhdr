@@ -50,4 +50,20 @@ fn dng_converts_to_valid_ultrahdr() {
     if let Some(o) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY) {
         assert_eq!(o.value.get_uint(0), Some(1), "output orientation should be 1");
     }
+
+    // Gain-map metadata sanity (M4 validation): the HDR capacity must reflect
+    // our content-aware headroom — above SDR (1.0) and within the cap.
+    let info = uhdr::probe(&jpeg).expect("probe gain-map metadata");
+    eprintln!(
+        "base {}x{}, gainmap {}x{}, hdr_capacity_max {:.3}, max_content_boost {:.3}",
+        info.base_width, info.base_height, info.gainmap_width, info.gainmap_height,
+        info.hdr_capacity_max, info.max_content_boost[0],
+    );
+    assert!(
+        info.hdr_capacity_max > 1.0 && info.hdr_capacity_max <= dng2uhdr_core::DEFAULT_MAX_HEADROOM + 0.01,
+        "hdr_capacity_max {} out of expected (1, {}] range",
+        info.hdr_capacity_max, dng2uhdr_core::DEFAULT_MAX_HEADROOM
+    );
+    // Gain map is full-resolution (scale factor 1) and matches the base size.
+    assert_eq!((info.gainmap_width, info.gainmap_height), (info.base_width, info.base_height));
 }
