@@ -299,14 +299,14 @@ General:
 - **OQ-1 (normalization anchor):** What maps to linear 1.0 (SDR white)? Drives total HDR boost. Plan: derive from LibRaw white level / a configurable diffuse-white percentile; validate visually + against known-good Ultra HDR samples. Exposed as `--hdr-white`.
 - **OQ-2 (highlight default):** clip vs blend vs rebuild — which default best preserves HDR headroom without artifacts? Decide via golden-image comparison.
 - **OQ-3 (EXIF splicing):** Confirm we can inject an APP1/EXIF segment without corrupting libultrahdr's MPF/XMP gain-map segments. If fragile, fall back to libultrahdr's own metadata hooks or a post-mux rewrite that preserves segment order.
-- **OQ-4 (native lib provisioning):** **Resolved** — vendored, statically linked, built from pinned submodules by default; system libs are opt-in via the `vendored` feature switch / env overrides (see §6.2). Remaining sub-decision deferred to M0: whether to also vendor libjpeg-turbo for libultrahdr or require a system libjpeg.
+- **OQ-4 (native lib provisioning):** **Resolved** — vendored, statically linked, built from pinned submodules by default; system libs are opt-in via the `vendored` feature switch / env overrides (see §6.2). libjpeg sub-decision (settled in M0): the default vendored build sets `UHDR_BUILD_DEPS=ON`, so libultrahdr builds its own libjpeg-turbo from source and we link the resulting static `libjpeg.a` — a fully hermetic build. (Reason: with `BUILD_SHARED_LIBS=OFF` libultrahdr forces a static-only library search, and this host has only a shared system libjpeg.)
 - **OQ-5 (libultrahdr API-0 SDR quality):** if the library's auto-tonemap SDR base looks weak, the trait design lets us graduate to API-1 (our own SDR rendition) — note as a likely v2 path.
 - **OQ-6 (LibRaw Rust binding):** confirm `libraw-rs` exposes the `dcraw_process` params we need at 0.22.1; otherwise local `-sys`.
 
 ---
 
 ## 12. Milestones
-1. **M0 — Skeleton:** workspace, `third_party/` submodules pinned, vendored static builds of libultrahdr + LibRaw wired into `uhdr-sys`/`libraw-sys` `build.rs` (with the `vendored`-off system path also smoke-tested), FFI smoke test (synthetic image → valid Ultra HDR JPEG). Settle the libjpeg sub-decision here.
+1. **M0 — Skeleton: DONE.** Workspace scaffolded (`uhdr-sys`, `uhdr`, `libraw-sys`, `libraw-dev`, `core`, `cli`); `third_party/` submodules pinned (libultrahdr v1.4.0, LibRaw 0.22.1); vendored static builds wired into `uhdr-sys` (cmake, `UHDR_BUILD_DEPS=ON`) and `libraw-sys` (cc), both with system/env override paths; FFI smoke test green (synthetic half-float HDR → valid Ultra HDR JPEG, verified via `is_uhdr_image`). Build notes: needed `CMAKE_POLICY_VERSION_MINIMUM=3.5` for libjpeg-turbo 3.0.1 under CMake 4.x, and a forced `-include cstdint` for both libs under GCC 16's leaner libstdc++.
 2. **M1 — Develop path:** LibRaw integration → linear Rec.2020 16-bit → half-float; one DNG → Ultra HDR end-to-end.
 3. **M2 — CLI:** flags, single-file, error handling, EXIF/orientation.
 4. **M3 — Batch + parallelism + quality knobs.**

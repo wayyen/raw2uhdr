@@ -1,0 +1,8 @@
+[submodule "third_party/libultrahdr"]
+	path = third_party/libultrahdr
+	url = https://github.com/google/libultrahdr.git
+	# libultrahdr clones libjpeg-turbo into its own tree at build time; ignore it.
+	ignore = untracked
+[submodule "third_party/LibRaw"]
+	path = third_party/LibRaw
+	url = https://github.com/LibRaw/LibRaw.git

@@ -1,0 +1,20 @@
+[package]
+name = "libraw-sys"
+description = "Low-level FFI bindings to LibRaw"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+links = "raw"
+build = "build.rs"
+
+[features]
+default = ["vendored"]
+# Build LibRaw from the pinned third_party submodule and link statically.
+# Disable (`--no-default-features`) to link a system-provided LibRaw instead.
+vendored = []
+
+[build-dependencies]
+bindgen.workspace = true
+cc.workspace = true
+pkg-config.workspace = true

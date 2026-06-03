@@ -1,0 +1,18 @@
+[package]
+name = "uhdr"
+description = "Safe Rust wrapper over libultrahdr (uhdr-sys)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["vendored"]
+vendored = ["uhdr-sys/vendored"]
+
+[dependencies]
+uhdr-sys.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+half.workspace = true

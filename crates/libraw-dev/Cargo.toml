@@ -1,0 +1,11 @@
+[package]
+name = "libraw-dev"
+description = "Safe LibRaw integration: develops raw files into HDR renditions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+libraw-sys.workspace = true
+thiserror.workspace = true

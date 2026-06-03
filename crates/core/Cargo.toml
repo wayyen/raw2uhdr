@@ -1,0 +1,13 @@
+[package]
+name = "dng2uhdr-core"
+description = "Format-agnostic DNG to Ultra HDR conversion pipeline"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+uhdr.workspace = true
+libraw-dev.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

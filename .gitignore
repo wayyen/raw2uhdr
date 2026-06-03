@@ -2,6 +2,9 @@
 /target/
 **/*.rs.bk
 
+# libultrahdr fetches libjpeg-turbo into its own third_party tree at build time
+/third_party/libultrahdr/third_party/turbojpeg/
+
 # Local Claude Code / editor state
 /.claude/
 

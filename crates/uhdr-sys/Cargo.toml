@@ -1,0 +1,20 @@
+[package]
+name = "uhdr-sys"
+description = "Low-level FFI bindings to libultrahdr"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+links = "uhdr"
+build = "build.rs"
+
+[features]
+default = ["vendored"]
+# Build libultrahdr from the pinned third_party submodule and link statically.
+# Disable (`--no-default-features`) to link a system-provided libultrahdr instead.
+vendored = []
+
+[build-dependencies]
+bindgen.workspace = true
+cmake.workspace = true
+pkg-config.workspace = true

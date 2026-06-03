@@ -1,0 +1,44 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/uhdr-sys",
+    "crates/uhdr",
+    "crates/libraw-sys",
+    "crates/libraw-dev",
+    "crates/core",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["dng2uhdr contributors"]
+repository = "https://github.com/aisingapore/dng2uhdr"
+
+[workspace.dependencies]
+# Internal crates
+uhdr-sys = { path = "crates/uhdr-sys" }
+uhdr = { path = "crates/uhdr" }
+libraw-sys = { path = "crates/libraw-sys" }
+libraw-dev = { path = "crates/libraw-dev" }
+dng2uhdr-core = { path = "crates/core" }
+
+# Build-time
+bindgen = "0.70"
+cmake = "0.1"
+cc = "1.1"
+pkg-config = "0.3"
+
+# Runtime
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4.5", features = ["derive"] }
+rayon = "1.10"
+half = "2.4"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
