@@ -2,7 +2,8 @@
 //! a developed linear RGB16 image to packed RGBA half-float.
 
 use half::f16;
-use libraw_dev::DevelopedImage;
+use libraw_dev::{ColorSpace, DevelopedImage};
+use uhdr::ColorGamut;
 
 /// libultrahdr's nominal half-float ceiling: 10000 nits / 203 nits (SDR white).
 pub const HDR_MAX: f32 = 10000.0 / 203.0;
@@ -10,7 +11,16 @@ pub const HDR_MAX: f32 = 10000.0 / 203.0;
 /// Maximum value of a developed 16-bit sample.
 const SAMPLE_MAX: f32 = 65535.0;
 
-/// An HDR rendition: packed RGBA half-float, linear, BT.2100 gamut.
+/// Map a develop color space to the encoder's gamut tag.
+pub fn gamut_for(color_space: ColorSpace) -> ColorGamut {
+    match color_space {
+        ColorSpace::Srgb => ColorGamut::UHDR_CG_BT_709,
+        ColorSpace::DisplayP3 => ColorGamut::UHDR_CG_DISPLAY_P3,
+        ColorSpace::Rec2020 => ColorGamut::UHDR_CG_BT_2100,
+    }
+}
+
+/// An HDR rendition: packed RGBA half-float, linear, in `gamut`.
 ///
 /// `data` is `width * height` pixels of four little-endian `f16` channels
 /// (R, G, B, A) — the exact layout libultrahdr expects for
@@ -18,6 +28,7 @@ const SAMPLE_MAX: f32 = 65535.0;
 pub struct HdrImage {
     pub width: u32,
     pub height: u32,
+    pub gamut: ColorGamut,
     pub data: Vec<u8>,
 }
 
@@ -43,7 +54,12 @@ pub fn hdr_from_developed(dev: &DevelopedImage, hdr_headroom: f32) -> HdrImage {
         data.extend_from_slice(&alpha);
     }
 
-    HdrImage { width: dev.width, height: dev.height, data }
+    HdrImage {
+        width: dev.width,
+        height: dev.height,
+        gamut: gamut_for(dev.color_space),
+        data,
+    }
 }
 
 #[cfg(test)]
@@ -60,6 +76,7 @@ mod tests {
         let dev = DevelopedImage {
             width: 2,
             height: 1,
+            color_space: ColorSpace::Rec2020,
             data: vec![16384, 16384, 16384, 65535, 65535, 65535],
         };
         let headroom = 4.0;
@@ -83,7 +100,12 @@ mod tests {
 
     #[test]
     fn clamps_to_hdr_max() {
-        let dev = DevelopedImage { width: 1, height: 1, data: vec![65535, 65535, 65535] };
+        let dev = DevelopedImage {
+            width: 1,
+            height: 1,
+            color_space: ColorSpace::Rec2020,
+            data: vec![65535, 65535, 65535],
+        };
         // Absurd headroom would exceed the nominal ceiling; must be clamped.
         let hdr = hdr_from_developed(&dev, 1000.0);
         assert!((read_f16(&hdr.data, 0) - HDR_MAX).abs() < 0.5);

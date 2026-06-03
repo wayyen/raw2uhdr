@@ -3,7 +3,7 @@
 //! `HdrEncoder` is the trait boundary (DESIGN.md §6); `UltraHdrEncoder` is the
 //! v1 implementation using libultrahdr's API-0.
 
-use uhdr::{ColorGamut, ColorRange, ColorTransfer, Encoder, ImgFmt, ImgLabel, RawImage};
+use uhdr::{ColorRange, ColorTransfer, Encoder, ImgFmt, ImgLabel, RawImage};
 
 use crate::image::HdrImage;
 
@@ -34,7 +34,7 @@ impl HdrEncoder for UltraHdrEncoder {
             width: img.width,
             height: img.height,
             fmt: ImgFmt::UHDR_IMG_FMT_64bppRGBAHalfFloat,
-            gamut: ColorGamut::UHDR_CG_BT_2100,
+            gamut: img.gamut,
             transfer: ColorTransfer::UHDR_CT_LINEAR,
             range: ColorRange::UHDR_CR_FULL_RANGE,
             stride_pixels: img.width,

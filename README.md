@@ -81,23 +81,39 @@ You can also point the build at specific prebuilt libraries:
 
 ## Usage
 
-> The conversion CLI is under construction (M2). Today the binary is a
-> placeholder:
+Single-file conversion works today:
 
 ```bash
-cargo run -p dng2uhdr
+dng2uhdr input.dng -o output.jpg
 ```
 
-The planned interface (see [`DESIGN.md`](DESIGN.md) §7):
+Available options:
 
 ```bash
-dng2uhdr [OPTIONS] <INPUT>...        # files or directories
-  -o, --output <PATH>                # output file or directory
-      --quality <0-100>              # base JPEG quality
-      --wb <camera|auto|...>         # white balance
-      --exposure <EV>                # exposure compensation
-  -r, --recursive  -j, --jobs <N>    # batch + parallelism
+dng2uhdr [OPTIONS] <INPUT>
+  -o, --output <PATH>              # output (default: input with .jpg extension)
+      --wb <camera|auto>           # white balance
+      --wb-mul <R> <G> <B> <G2>    # custom WB multipliers (overrides --wb)
+      --exposure <EV>              # exposure compensation in stops (e.g. -1.0, +1.5)
+      --color-space <srgb|p3|rec2020>  # output primaries (default: rec2020)
+      --highlight <clip|blend|rebuild> # highlight handling
+      --hdr-headroom <F>           # HDR boost vs SDR white (default: 4.0)
+      --quality <0-100>            # base JPEG quality (default: 95)
+      --gainmap-scale <N>          # gain-map downscale factor
+      --overwrite                  # overwrite an existing output
+  -v, --verbose                    # -v info, -vv debug
 ```
+
+Develop adjustments (WB, exposure, color space, highlights) change the rendition
+but never affect HDR output — the gain map is always computed from whatever you
+produce. Batch mode, recursive directories, parallelism, and EXIF/orientation
+carry-over are planned for M2/M3 (see [`DESIGN.md`](DESIGN.md) §7).
+
+> **Note on look:** development is intentionally neutral (linear, no camera tone
+> curve), so the result will not match your camera's JPEG grading. `--exposure`
+> and `--hdr-headroom` are the main brightness/HDR levers. Shaping the SDR look
+> to resemble a finished camera JPEG (tone curve, contrast, saturation) needs the
+> caller-supplied-SDR encode path (libultrahdr API-1), a planned enhancement.
 
 ## Testing
 

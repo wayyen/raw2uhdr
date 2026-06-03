@@ -64,15 +64,47 @@ impl Highlight {
     }
 }
 
+/// Output color space (primaries). The develop path always emits linear data;
+/// this only selects the gamut. Downstream maps it to the encoder's gamut tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorSpace {
+    /// sRGB / BT.709 primaries.
+    Srgb,
+    /// Display-P3 primaries (LibRaw DCI-P3).
+    DisplayP3,
+    /// Rec.2020 / BT.2020 primaries.
+    Rec2020,
+}
+
+impl ColorSpace {
+    /// LibRaw `output_color` code.
+    fn to_libraw(self) -> i32 {
+        match self {
+            ColorSpace::Srgb => 1,
+            ColorSpace::DisplayP3 => 7, // DCI-P3
+            ColorSpace::Rec2020 => 8,
+        }
+    }
+}
+
+impl Default for ColorSpace {
+    fn default() -> Self {
+        ColorSpace::Rec2020
+    }
+}
+
 /// Development options. Defaults target faithful, near-default development.
 #[derive(Debug, Clone)]
 pub struct DevelopOptions {
     pub white_balance: WhiteBalance,
     pub highlight: Highlight,
+    /// Output gamut (primaries). Data stays linear regardless.
+    pub color_space: ColorSpace,
     /// LibRaw demosaic quality (`user_qual`); 3 = AHD.
     pub demosaic: i32,
-    /// Linear exposure multiplier applied during development (1.0 = none).
-    pub exposure: f32,
+    /// Exposure compensation in stops (0.0 = none). Applied in scene-linear
+    /// space before tone/output handling.
+    pub exposure_ev: f32,
 }
 
 impl Default for DevelopOptions {
@@ -80,19 +112,22 @@ impl Default for DevelopOptions {
         DevelopOptions {
             white_balance: WhiteBalance::Camera,
             highlight: Highlight::Clip,
+            color_space: ColorSpace::Rec2020,
             demosaic: 3,
-            exposure: 1.0,
+            exposure_ev: 0.0,
         }
     }
 }
 
-/// A developed image: interleaved RGB, 16-bit, linear, Rec.2020 primaries.
+/// A developed image: interleaved RGB, 16-bit, linear, in `color_space`'s
+/// primaries.
 ///
 /// `data` holds `width * height * 3` samples in row-major RGBRGB... order,
 /// host-endian, scene-linear with no tone curve applied.
 pub struct DevelopedImage {
     pub width: u32,
     pub height: u32,
+    pub color_space: ColorSpace,
     pub data: Vec<u16>,
 }
 
@@ -145,21 +180,33 @@ pub fn develop_file(path: &Path, opts: &DevelopOptions) -> Result<DevelopedImage
             *sample = u16::from_ne_bytes([bytes[2 * i], bytes[2 * i + 1]]);
         }
 
-        Ok(DevelopedImage { width: img.width as u32, height: img.height as u32, data })
+        Ok(DevelopedImage {
+            width: img.width as u32,
+            height: img.height as u32,
+            color_space: opts.color_space,
+            data,
+        })
     }
 }
 
 /// Apply our fixed development policy plus user options to LibRaw params.
 unsafe fn configure(params: &mut sys::libraw_output_params_t, opts: &DevelopOptions) {
-    // Fixed policy: linear, Rec.2020, 16-bit, no auto-bright (DESIGN.md §5.1).
+    // Fixed policy: linear, 16-bit, no auto-bright (DESIGN.md §5.1).
     params.output_bps = 16;
     params.gamm[0] = 1.0; // linear power
     params.gamm[1] = 1.0; // linear toe slope
-    params.output_color = 8; // Rec.2020 / BT.2020
     params.no_auto_bright = 1;
+    params.output_color = opts.color_space.to_libraw();
     params.user_qual = opts.demosaic;
     params.highlight = opts.highlight.to_libraw();
-    params.bright = opts.exposure;
+
+    // Exposure compensation in scene-linear space (2^EV), applied before
+    // highlight/output handling. exp_shift==1.0 is a no-op.
+    if opts.exposure_ev != 0.0 {
+        params.exp_correc = 1;
+        params.exp_shift = 2.0f32.powf(opts.exposure_ev);
+        params.exp_preser = 1.0; // preserve highlights while shifting exposure
+    }
 
     // White balance.
     params.use_camera_wb = 0;

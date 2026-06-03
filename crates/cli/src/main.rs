@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use dng2uhdr_core::{
-    DevelopOptions, Highlight, LibRawDeveloper, Pipeline, UltraHdrEncoder, WhiteBalance,
-    DEFAULT_HDR_HEADROOM,
+    ColorSpace, DevelopOptions, Highlight, LibRawDeveloper, Pipeline, UltraHdrEncoder,
+    WhiteBalance, DEFAULT_HDR_HEADROOM,
 };
 
 #[derive(Parser)]
@@ -25,6 +25,18 @@ struct Cli {
     /// White balance.
     #[arg(long, value_enum, default_value_t = WbArg::Camera)]
     wb: WbArg,
+
+    /// Custom white-balance multipliers: R G B G2 (overrides --wb).
+    #[arg(long, num_args = 4, value_names = ["R", "G", "B", "G2"])]
+    wb_mul: Option<Vec<f32>>,
+
+    /// Exposure compensation in stops (e.g. -1.0, +1.5). 0 = none.
+    #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
+    exposure: f32,
+
+    /// Output color space (primaries). Data stays linear.
+    #[arg(long, value_enum, default_value_t = CsArg::Rec2020)]
+    color_space: CsArg,
 
     /// Highlight handling.
     #[arg(long, value_enum, default_value_t = HlArg::Clip)]
@@ -64,6 +76,16 @@ enum HlArg {
     Rebuild,
 }
 
+#[derive(Copy, Clone, ValueEnum)]
+enum CsArg {
+    /// sRGB / BT.709
+    Srgb,
+    /// Display-P3
+    P3,
+    /// Rec.2020 / BT.2020
+    Rec2020,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
@@ -76,16 +98,30 @@ fn main() -> Result<()> {
         );
     }
 
-    let options = DevelopOptions {
-        white_balance: match cli.wb {
+    let white_balance = match &cli.wb_mul {
+        Some(m) => {
+            // num_args=4 guarantees exactly four values.
+            WhiteBalance::Custom([m[0], m[1], m[2], m[3]])
+        }
+        None => match cli.wb {
             WbArg::Camera => WhiteBalance::Camera,
             WbArg::Auto => WhiteBalance::Auto,
         },
+    };
+
+    let options = DevelopOptions {
+        white_balance,
         highlight: match cli.highlight {
             HlArg::Clip => Highlight::Clip,
             HlArg::Blend => Highlight::Blend,
             HlArg::Rebuild => Highlight::Rebuild,
         },
+        color_space: match cli.color_space {
+            CsArg::Srgb => ColorSpace::Srgb,
+            CsArg::P3 => ColorSpace::DisplayP3,
+            CsArg::Rec2020 => ColorSpace::Rec2020,
+        },
+        exposure_ev: cli.exposure,
         ..DevelopOptions::default()
     };
 
