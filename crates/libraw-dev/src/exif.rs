@@ -174,7 +174,7 @@ pub fn build_exif(meta: &RawMetadata) -> Vec<u8> {
     // image is upright.
     ifd0.push(Entry { tag: TAG_ORIENTATION, value: Value::Short(1) });
     let software =
-        if meta.software.is_empty() { "dng2uhdr".to_string() } else { meta.software.clone() };
+        if meta.software.is_empty() { "raw2uhdr".to_string() } else { meta.software.clone() };
     ifd0.push(Entry { tag: TAG_SOFTWARE, value: Value::ascii(&software) });
     if let Some(dt) = &datetime {
         ifd0.push(Entry { tag: TAG_DATETIME, value: Value::ascii(dt) });

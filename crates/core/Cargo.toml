@@ -1,5 +1,5 @@
 [package]
-name = "dng2uhdr-core"
+name = "raw2uhdr-core"
 description = "Format-agnostic DNG to Ultra HDR conversion pipeline"
 version.workspace = true
 edition.workspace = true

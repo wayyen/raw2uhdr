@@ -1,4 +1,4 @@
-# dng2uhdr
+# raw2uhdr
 
 Convert DNG raw files from supported cameras into [Ultra HDR](https://developer.android.com/media/platform/hdr-image-format)
 JPEGs with minimal loss of quality.
@@ -45,7 +45,7 @@ All native libraries (libultrahdr, LibRaw, and libultrahdr's libjpeg-turbo) are
 
 ```bash
 git clone --recurse-submodules <repo-url>
-cd dng2uhdr
+cd raw2uhdr
 cargo build --workspace            # or: cargo build --release
 ```
 
@@ -86,22 +86,22 @@ You can also point the build at specific prebuilt libraries:
 
 ```bash
 # Single file
-dng2uhdr input.dng -o output.jpg
+raw2uhdr input.dng -o output.jpg
 
 # Whole directory in parallel, into an output directory
-dng2uhdr photos/ -o out/
+raw2uhdr photos/ -o out/
 
 # Recurse into subdirectories (mirrored under the output directory)
-dng2uhdr photos/ -o out/ --recursive
+raw2uhdr photos/ -o out/ --recursive
 
 # Multiple inputs; outputs land next to each source when -o is omitted
-dng2uhdr a.dng b.dng c.dng
+raw2uhdr a.dng b.dng c.dng
 ```
 
 Available options:
 
 ```bash
-dng2uhdr [OPTIONS] <INPUTS>...
+raw2uhdr [OPTIONS] <INPUTS>...
   -o, --output <PATH>              # output file (single) or directory (batch)
       --suffix <S>                 # append to each output stem (before .jpg)
   -r, --recursive                  # recurse into input directories
@@ -164,7 +164,7 @@ crates/
   libraw-sys/   FFI bindings to LibRaw (bindgen) + vendored/system build
   libraw-dev/   safe LibRaw integration: develop raw -> linear RGB16 + EXIF
   core/         conversion pipeline: Developer/HdrEncoder traits, anchor, Pipeline
-  cli/          the dng2uhdr binary
+  cli/          the raw2uhdr binary
 third_party/
   libultrahdr/  submodule, pinned to v1.4.0
   LibRaw/       submodule, pinned to 0.22.1

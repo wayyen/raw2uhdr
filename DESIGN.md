@@ -1,4 +1,4 @@
-# dng2uhdr — Design Document
+# raw2uhdr — Design Document
 
 **Status:** Draft for review
 **Date:** 2026-06-03
@@ -141,7 +141,7 @@ Given the linear half-float HDR image, libultrahdr tonemaps to an SDR base, comp
 Cargo **workspace** (keeps the unsafe FFI isolated, the core pure, and leaves room for a GUI crate):
 
 ```
-dng2uhdr/
+raw2uhdr/
 ├─ Cargo.toml                  # workspace
 ├─ crates/
 │  ├─ uhdr-sys/               # raw FFI bindings to libultrahdr C API (bindgen)
@@ -229,7 +229,7 @@ third_party/
 ## 7. CLI design
 
 ```
-dng2uhdr [OPTIONS] <INPUT>...
+raw2uhdr [OPTIONS] <INPUT>...
 
 INPUT            One or more .dng files or directories (with --recursive)
 

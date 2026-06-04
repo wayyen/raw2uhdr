@@ -13,8 +13,8 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-authors = ["dng2uhdr contributors"]
-repository = "https://github.com/aisingapore/dng2uhdr"
+authors = ["raw2uhdr contributors"]
+repository = "https://github.com/wayyen/raw2uhdr"
 
 [workspace.dependencies]
 # Internal crates
@@ -22,7 +22,7 @@ uhdr-sys = { path = "crates/uhdr-sys" }
 uhdr = { path = "crates/uhdr" }
 libraw-sys = { path = "crates/libraw-sys" }
 libraw-dev = { path = "crates/libraw-dev" }
-dng2uhdr-core = { path = "crates/core" }
+raw2uhdr-core = { path = "crates/core" }
 
 # Build-time
 bindgen = "0.70"

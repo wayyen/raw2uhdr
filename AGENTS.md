@@ -52,7 +52,7 @@ Native-lib provisioning (both `*-sys` crates share the same logic in `build.rs`)
 | `crates/libraw-sys` | bindgen FFI to LibRaw C API; vendored cc build | done (M0) |
 | `crates/libraw-dev` | safe LibRaw integration: develop raw → HDR | stub (M1) |
 | `crates/core` | format-agnostic pipeline + traits | stub (M1+) |
-| `crates/cli` | the `dng2uhdr` binary | placeholder (M2) |
+| `crates/cli` | the `raw2uhdr` binary | placeholder (M2) |
 | `third_party/libultrahdr` | submodule @ v1.4.0 | pinned |
 | `third_party/LibRaw` | submodule @ 0.22.1 | pinned |
 

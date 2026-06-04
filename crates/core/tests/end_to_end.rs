@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use dng2uhdr_core::Pipeline;
+use raw2uhdr_core::Pipeline;
 
 fn sample_dng() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("DNG2UHDR_TEST_DNG") {
@@ -60,9 +60,9 @@ fn dng_converts_to_valid_ultrahdr() {
         info.hdr_capacity_max, info.max_content_boost[0],
     );
     assert!(
-        info.hdr_capacity_max > 1.0 && info.hdr_capacity_max <= dng2uhdr_core::DEFAULT_MAX_HEADROOM + 0.01,
+        info.hdr_capacity_max > 1.0 && info.hdr_capacity_max <= raw2uhdr_core::DEFAULT_MAX_HEADROOM + 0.01,
         "hdr_capacity_max {} out of expected (1, {}] range",
-        info.hdr_capacity_max, dng2uhdr_core::DEFAULT_MAX_HEADROOM
+        info.hdr_capacity_max, raw2uhdr_core::DEFAULT_MAX_HEADROOM
     );
     // Gain map is full-resolution (scale factor 1) and matches the base size.
     assert_eq!((info.gainmap_width, info.gainmap_height), (info.base_width, info.base_height));

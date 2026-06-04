@@ -1,5 +1,5 @@
 [package]
-name = "dng2uhdr"
+name = "raw2uhdr"
 description = "Convert DNG raw files to Ultra HDR JPEGs"
 version.workspace = true
 edition.workspace = true
@@ -7,11 +7,11 @@ license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "dng2uhdr"
+name = "raw2uhdr"
 path = "src/main.rs"
 
 [dependencies]
-dng2uhdr-core.workspace = true
+raw2uhdr-core.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 rayon.workspace = true

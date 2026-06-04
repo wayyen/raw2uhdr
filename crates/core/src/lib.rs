@@ -1,4 +1,4 @@
-//! Core conversion pipeline for dng2uhdr.
+//! Core conversion pipeline for raw2uhdr.
 //!
 //! Organized around trait boundaries (DESIGN.md §6): a [`develop::Developer`]
 //! produces a developed linear image, [`image::hdr_from_developed`] converts it

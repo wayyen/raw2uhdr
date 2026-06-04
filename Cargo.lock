@@ -216,30 +216,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
-name = "dng2uhdr"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "dng2uhdr-core",
- "rayon",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "dng2uhdr-core"
-version = "0.1.0"
-dependencies = [
- "half",
- "kamadak-exif",
- "libraw-dev",
- "thiserror",
- "tracing",
- "uhdr",
-]
-
-[[package]]
 name = "either"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -439,6 +415,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41f2619966050689382d2b44f664f4bc593e129785a36d6ee376ddf37259b924"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "raw2uhdr"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "raw2uhdr-core",
+ "rayon",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "raw2uhdr-core"
+version = "0.1.0"
+dependencies = [
+ "half",
+ "kamadak-exif",
+ "libraw-dev",
+ "thiserror",
+ "tracing",
+ "uhdr",
 ]
 
 [[package]]

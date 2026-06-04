@@ -1,4 +1,4 @@
-//! dng2uhdr CLI.
+//! raw2uhdr CLI.
 //!
 //! Converts DNG raw files to Ultra HDR JPEGs. Supports single files, multiple
 //! inputs, directories (optionally recursive), and parallel batch conversion.
@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
-use dng2uhdr_core::{
+use raw2uhdr_core::{
     ColorSpace, DevelopOptions, HdrAnchor, Highlight, LibRawDeveloper, Pipeline, UltraHdrEncoder,
     WhiteBalance, DEFAULT_MAX_HEADROOM,
 };
@@ -18,7 +18,7 @@ use rayon::prelude::*;
 const RAW_EXTENSIONS: &[&str] = &["dng"];
 
 #[derive(Parser)]
-#[command(name = "dng2uhdr", version, about = "Convert DNG raw files to Ultra HDR JPEGs")]
+#[command(name = "raw2uhdr", version, about = "Convert DNG raw files to Ultra HDR JPEGs")]
 struct Cli {
     /// Input raw files and/or directories.
     #[arg(required = true)]
@@ -66,7 +66,7 @@ struct Cli {
     hdr_headroom: String,
 
     /// Luminance percentile mapped to SDR white in auto mode (0-100).
-    #[arg(long, default_value_t = dng2uhdr_core::DEFAULT_AUTO_PERCENTILE)]
+    #[arg(long, default_value_t = raw2uhdr_core::DEFAULT_AUTO_PERCENTILE)]
     hdr_white_percentile: f32,
 
     /// Base-image JPEG quality (0-100).
@@ -361,7 +361,7 @@ fn init_tracing(verbose: u8) {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("dng2uhdr={level},dng2uhdr_core={level}").into()),
+                .unwrap_or_else(|_| format!("raw2uhdr={level},raw2uhdr_core={level}").into()),
         )
         .with_writer(std::io::stderr)
         .init();
