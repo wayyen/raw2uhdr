@@ -1,5 +1,6 @@
-//! Safe LibRaw integration. Develops raw files (DNG today, more later) into a
-//! linear, wide-gamut, high-bit-depth image suitable for HDR encoding.
+//! Safe LibRaw integration. Develops raw files — any format LibRaw supports
+//! (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, …) — into a linear, wide-gamut,
+//! high-bit-depth image suitable for HDR encoding.
 //!
 //! The development settings follow `DESIGN.md` §5.1: linear gamma, Rec.2020
 //! output primaries, 16-bit output, no auto-brightening — so the result is

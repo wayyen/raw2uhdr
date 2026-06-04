@@ -29,7 +29,7 @@ Google's reference C/C++ library for encoding/decoding Ultra HDR. Its encoder ex
 **Decision (confirmed): we use API-0.** We develop the DNG into a high-fidelity HDR rendition and let libultrahdr derive the SDR base and the gain map. This keeps the first version simple and leans on a well-tested tonemapper. The pipeline is structured so we can later switch to API-1/API-3 (caller-controlled SDR look) behind the same interface.
 
 ### 1.3 DNG / raw development
-DNG is a container for raw sensor data plus metadata. Turning it into a viewable image ("developing") requires: black-level subtraction, white balance, demosaicing, color-space conversion via the camera color matrix, highlight handling, and a tone/gamma curve. We delegate this to **LibRaw** (system version 0.22.1 detected), which has broad camera/DNG support and can emit **linear 16-bit Rec.2020** directly — exactly the input shape libultrahdr wants.
+A raw file is a container for raw sensor data plus metadata. Turning it into a viewable image ("developing") requires: black-level subtraction, white balance, demosaicing, color-space conversion via the camera color matrix, highlight handling, and a tone/gamma curve. We delegate this to **LibRaw** (pinned to 0.22.1), which has broad camera/format support and can emit **linear 16-bit Rec.2020** directly — exactly the input shape libultrahdr wants. Because LibRaw identifies files by content and the develop path is format-agnostic, raw2uhdr accepts **any raw format LibRaw decodes** (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, …), not just DNG. The set of extensions used to discover raws in a scanned directory lives in `core::format` (`SUPPORTED_EXTENSIONS`); explicitly-named files are passed to LibRaw regardless of extension.
 
 ---
 
@@ -44,7 +44,6 @@ DNG is a container for raw sensor data plus metadata. Turning it into a viewable
 
 ### 2.2 Out of scope (v1) / future
 - GUI preview (architecture must allow it; not built in v1).
-- Non-DNG raw formats (CR3, NEF, ARW, …) — LibRaw supports them; we gate v1 on DNG but keep the decoder trait format-agnostic.
 - API-1/3/4 encode paths (interface allows; not wired in v1).
 - Editing/grading controls beyond basic exposure.
 
@@ -311,5 +310,6 @@ General:
 3. **M2 — CLI: DONE.** Flag surface (`--wb/--wb-mul/--exposure/--color-space/--highlight/--hdr-headroom/--quality/--gainmap-scale/--no-exif/--overwrite/-v`); typed errors with clean messages and exit codes (2 usage, 1 runtime, friendly missing-file check); EXIF carry-over via libultrahdr (OQ-3 resolved) with orientation baked upright (orientation tag = 1). Verified on Pixel DNGs: EXIF round-trips (make/model/exposure/iso/focal/datetime) and the gain map stays intact.
 4. **M3 — Batch + parallelism: DONE.** Multiple inputs and directory inputs (`--recursive` mirrors subdirectories under the output dir); `-o` is a file (single) or output directory (batch); `--suffix`; parallel conversion with `rayon` (`-j` to cap threads, ~3.7× on 5 files); skip-on-exists unless `--overwrite`; per-file error collection with a run summary and exit codes (0 ok / 1 any failure / 2 usage). Quality knobs (`--quality`, `--gainmap-scale`, `--hdr-headroom`) landed earlier.
 5. **M4 — Validation pass: DONE.** Added a decode-based gain-map metadata probe (`uhdr::probe`) and used it to drive decisions. Resolved OQ-1 (content-aware percentile anchor + `set_target_display_peak_brightness` so `hdr_capacity_max` tracks the content — confirmed across samples) and OQ-2 (clip default, blend recommended for highlights). Tests: deterministic auto-anchor unit test; end-to-end now asserts gain-map capacity is in `(1, cap]` and the gain map matches the base resolution. Remaining: perceptual tuning of the percentile/cap defaults on an HDR display (user-driven).
-6. **Future:** GUI preview crate; additional raw formats; API-1/3 encode paths.
+6. **M5 — All LibRaw formats: DONE.** Input broadened from DNG to every raw format LibRaw 0.22.1 decodes (CR2/CR3, NEF, ARW, RAF, ORF, RW2, X3F, …). Centralized the recognized-extension registry in `core::format` (`SUPPORTED_EXTENSIONS` + `is_supported_extension`), which drives directory scanning; explicitly-named files are passed to LibRaw regardless of extension. Documented the supported-format table in the README. No format-specific decode branches — LibRaw handles identification by content.
+7. **Future:** GUI preview crate; API-1/3 encode paths.
 ```

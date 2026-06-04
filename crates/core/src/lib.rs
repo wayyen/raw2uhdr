@@ -7,11 +7,13 @@
 
 pub mod develop;
 pub mod encode;
+pub mod format;
 pub mod image;
 pub mod pipeline;
 
 pub use develop::{Developer, Highlight, LibRawDeveloper, WhiteBalance};
 pub use encode::{HdrEncoder, UltraHdrEncoder};
+pub use format::{is_supported_extension, SUPPORTED_EXTENSIONS};
 pub use image::{hdr_from_developed, resolve_headroom, HdrAnchor, HdrImage};
 pub use libraw_dev::{ColorSpace, DevelopError, DevelopOptions, DevelopedImage, RawMetadata};
 pub use pipeline::{

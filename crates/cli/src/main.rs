@@ -1,6 +1,7 @@
 //! raw2uhdr CLI.
 //!
-//! Converts DNG raw files to Ultra HDR JPEGs. Supports single files, multiple
+//! Converts camera raw files (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2, … any
+//! format LibRaw supports) to Ultra HDR JPEGs. Supports single files, multiple
 //! inputs, directories (optionally recursive), and parallel batch conversion.
 
 use std::path::{Path, PathBuf};
@@ -9,16 +10,17 @@ use std::process::ExitCode;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
 use raw2uhdr_core::{
-    ColorSpace, DevelopOptions, HdrAnchor, Highlight, LibRawDeveloper, Pipeline, UltraHdrEncoder,
-    WhiteBalance, DEFAULT_MAX_HEADROOM,
+    is_supported_extension, ColorSpace, DevelopOptions, HdrAnchor, Highlight, LibRawDeveloper,
+    Pipeline, UltraHdrEncoder, WhiteBalance, DEFAULT_MAX_HEADROOM,
 };
 use rayon::prelude::*;
 
-/// Raw file extensions we pick up when scanning directories.
-const RAW_EXTENSIONS: &[&str] = &["dng"];
-
 #[derive(Parser)]
-#[command(name = "raw2uhdr", version, about = "Convert DNG raw files to Ultra HDR JPEGs")]
+#[command(
+    name = "raw2uhdr",
+    version,
+    about = "Convert camera raw files (DNG, CR2/CR3, NEF, ARW, and other LibRaw formats) to Ultra HDR JPEGs"
+)]
 struct Cli {
     /// Input raw files and/or directories.
     #[arg(required = true)]
@@ -339,17 +341,10 @@ fn collect_raws(dir: &Path, recursive: bool, out: &mut Vec<PathBuf>) {
             if recursive {
                 collect_raws(&path, recursive, out);
             }
-        } else if is_raw(&path) {
+        } else if is_supported_extension(&path) {
             out.push(path);
         }
     }
-}
-
-fn is_raw(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| RAW_EXTENSIONS.iter().any(|r| e.eq_ignore_ascii_case(r)))
-        .unwrap_or(false)
 }
 
 fn init_tracing(verbose: u8) {

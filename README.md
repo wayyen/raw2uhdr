@@ -1,20 +1,21 @@
 # raw2uhdr
 
-Convert DNG raw files from supported cameras into [Ultra HDR](https://developer.android.com/media/platform/hdr-image-format)
+Convert camera raw files into [Ultra HDR](https://developer.android.com/media/platform/hdr-image-format)
 JPEGs with minimal loss of quality.
 
-DNGs are developed through [LibRaw](https://www.libraw.org/) into a linear,
+Raw files are developed through [LibRaw](https://www.libraw.org/) into a linear,
 wide-gamut, high-bit-depth HDR rendition, which is then encoded to an Ultra HDR
 JPEG via Google's [libultrahdr](https://github.com/google/libultrahdr). The
 output is a standard JPEG (viewable anywhere) carrying an embedded gain map that
-HDR-capable displays use to reconstruct the HDR rendition.
+HDR-capable displays use to reconstruct the HDR rendition. Any raw format LibRaw
+decodes is accepted — see [Supported input formats](#supported-input-formats).
 
 > **Status:** the core CLI is feature-complete — single-file and batch
 > conversion, develop controls (white balance, exposure, color space,
 > highlights), a content-aware HDR anchor, EXIF/orientation carry-over, and
-> parallel directory processing all work end to end. Planned next: matching the
-> camera JPEG look (libultrahdr API-1), a GUI preview, and more raw formats.
-> See [`DESIGN.md`](DESIGN.md) for the full design and roadmap.
+> parallel directory processing all work end to end, for any raw format LibRaw
+> decodes. Planned next: matching the camera JPEG look (libultrahdr API-1) and a
+> GUI preview. See [`DESIGN.md`](DESIGN.md) for the full design and roadmap.
 
 ## How it works
 
@@ -120,9 +121,12 @@ raw2uhdr [OPTIONS] <INPUTS>...
   -v, --verbose                    # -v info, -vv debug
 ```
 
-When scanning directories, `*.dng` files are picked up. In batch mode `-o` is an
-output directory; existing outputs are skipped unless `--overwrite` is given.
-The exit code is `0` on success, `1` if any file failed, `2` for usage errors.
+When scanning directories, files with known raw extensions are picked up (see
+[Supported input formats](#supported-input-formats)); a file named explicitly on
+the command line is always attempted, whatever its extension. In batch mode `-o`
+is an output directory; existing outputs are skipped unless `--overwrite` is
+given. The exit code is `0` on success, `1` if any file failed, `2` for usage
+errors.
 
 Camera EXIF metadata (make, model, capture time, exposure, aperture, ISO,
 focal length) is copied into the output by default; pass `--no-exif` to omit it.
@@ -138,6 +142,37 @@ produce.
 > and `--hdr-headroom` are the main brightness/HDR levers. Shaping the SDR look
 > to resemble a finished camera JPEG (tone curve, contrast, saturation) needs the
 > caller-supplied-SDR encode path (libultrahdr API-1), a planned enhancement.
+
+## Supported input formats
+
+Decoding is handled by LibRaw, so raw2uhdr accepts any raw format the pinned
+**LibRaw 0.22.1** decodes. LibRaw identifies files by their *content*, not their
+extension — so a file named explicitly on the command line is always handed to
+LibRaw regardless of extension. The extension list below is what raw2uhdr uses to
+**discover raw files when scanning a directory**:
+
+| Vendor | Extensions |
+|--------|------------|
+| Adobe / generic | `dng` |
+| Canon | `cr2`, `cr3`, `crw` |
+| Nikon | `nef`, `nrw` |
+| Sony | `arw`, `srf`, `sr2` |
+| Fujifilm | `raf` |
+| Olympus / OM System | `orf` |
+| Panasonic / Leica | `rw2`, `raw`, `rwl` |
+| Pentax | `pef`, `ptx` |
+| Samsung | `srw` |
+| Sigma (Foveon) | `x3f` |
+| Hasselblad | `3fr`, `fff` |
+| Phase One | `iiq`, `cap`, `eip` |
+| Mamiya / Leaf / Minolta | `mef`, `mos`, `mrw` |
+| Epson | `erf` |
+| Kodak | `dcr`, `kdc`, `k25`, `dcs`, `drf` |
+| Other | `mdc`, `gpr` (GoPro), `bay` (Casio), `ari` (ARRI) |
+
+The authoritative list of *cameras* LibRaw supports is published with each LibRaw
+release; per-camera support is what ultimately determines whether a given file
+develops. The registry lives in one place — `crates/core/src/format.rs`.
 
 ## Testing
 
