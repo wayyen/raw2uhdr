@@ -9,8 +9,11 @@ JPEG via Google's [libultrahdr](https://github.com/google/libultrahdr). The
 output is a standard JPEG (viewable anywhere) carrying an embedded gain map that
 HDR-capable displays use to reconstruct the HDR rendition.
 
-> **Status:** early development. The native FFI build and encode path are
-> working (M0); the end-to-end DNG → Ultra HDR CLI is being built out (M1+).
+> **Status:** the core CLI is feature-complete — single-file and batch
+> conversion, develop controls (white balance, exposure, color space,
+> highlights), a content-aware HDR anchor, EXIF/orientation carry-over, and
+> parallel directory processing all work end to end. Planned next: matching the
+> camera JPEG look (libultrahdr API-1), a GUI preview, and more raw formats.
 > See [`DESIGN.md`](DESIGN.md) for the full design and roadmap.
 
 ## How it works
@@ -147,21 +150,29 @@ Notable tests:
 - `crates/uhdr/tests/smoke.rs` — encodes a synthetic half-float HDR gradient and
   verifies a valid Ultra HDR JPEG is produced.
 - `crates/libraw-sys/tests/link.rs` — confirms LibRaw links and its C API works.
+- `crates/core/tests/end_to_end.rs` — develops a real DNG and asserts the output
+  is valid Ultra HDR with sane gain-map metadata and round-tripped EXIF. It is
+  bring-your-own-DNG: set `DNG2UHDR_TEST_DNG=/path/to.dng` or drop a `*.dng` into
+  `samples/` (auto-skips when none is present, so CI stays green).
 
 ## Project layout
 
 ```
 crates/
   uhdr-sys/     FFI bindings to libultrahdr (bindgen) + vendored/system build
-  uhdr/         safe RAII wrapper over uhdr-sys
+  uhdr/         safe RAII wrapper over uhdr-sys (encode + metadata probe)
   libraw-sys/   FFI bindings to LibRaw (bindgen) + vendored/system build
-  libraw-dev/   safe LibRaw integration: develop raw -> HDR rendition (M1)
-  core/         format-agnostic conversion pipeline (traits) (M1+)
-  cli/          the dng2uhdr binary (M2)
+  libraw-dev/   safe LibRaw integration: develop raw -> linear RGB16 + EXIF
+  core/         conversion pipeline: Developer/HdrEncoder traits, anchor, Pipeline
+  cli/          the dng2uhdr binary
 third_party/
   libultrahdr/  submodule, pinned to v1.4.0
   LibRaw/       submodule, pinned to 0.22.1
 ```
+
+The pipeline is built around trait boundaries (`Developer`, `HdrEncoder`) so new
+raw formats or output encoders can be added without touching the core. See
+[`AGENTS.md`](AGENTS.md) for contributor guidance.
 
 ## License
 
