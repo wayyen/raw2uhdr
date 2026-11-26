@@ -9,3 +9,5 @@ repository.workspace = true
 [dependencies]
 libraw-sys.workspace = true
 thiserror.workspace = true
+rayon.workspace = true
+tracing.workspace = true

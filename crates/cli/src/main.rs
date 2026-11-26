@@ -10,8 +10,8 @@ use std::process::ExitCode;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
 use raw2uhdr_core::{
-    is_supported_extension, ColorSpace, DevelopOptions, HdrAnchor, Highlight, LibRawDeveloper,
-    Pipeline, UltraHdrEncoder, WhiteBalance, DEFAULT_MAX_HEADROOM,
+    is_supported_extension, ColorSpace, DevelopOptions, Headroom, Highlight, LibRawDeveloper,
+    Pipeline, RenderOptions, ToneMode, UltraHdrEncoder, WhiteBalance, DEFAULT_MAX_HEADROOM,
 };
 use rayon::prelude::*;
 
@@ -50,26 +50,40 @@ struct Cli {
     #[arg(long, num_args = 4, value_names = ["R", "G", "B", "G2"])]
     wb_mul: Option<Vec<f32>>,
 
-    /// Exposure compensation in stops (e.g. -1.0, +1.5). 0 = none.
+    /// Exposure compensation in stops (e.g. -1.0, +1.5), on top of the
+    /// camera's baseline exposure. 0 = as the camera intended.
     #[arg(long, default_value_t = 0.0, allow_negative_numbers = true)]
     exposure: f32,
 
-    /// Output color space (primaries). Data stays linear.
-    #[arg(long, value_enum, default_value_t = CsArg::Rec2020)]
+    /// Shadow black clip in Adobe "Shadows" units (0 = none, default 5 ≈ 0.5%
+    /// of raw white). Higher = deeper blacks.
+    #[arg(long, default_value_t = raw2uhdr_core::DEFAULT_BLACK_CLIP)]
+    black_clip: f32,
+
+    /// How the tone curve treats colour: "luminance" keeps colour ratios
+    /// (matches camera JPEGs); "adobe" is Adobe's RGB-tone, which adds
+    /// saturation in shadows/midtones (matches Lightroom/ACR).
+    #[arg(long, value_enum, default_value_t = ToneArg::Luminance)]
+    tone: ToneArg,
+
+    /// Ignore the DNG's embedded camera profile (look table, local tone
+    /// mapping, tone curve, baseline exposure) and render neutrally.
+    #[arg(long)]
+    no_profile: bool,
+
+    /// Output color space (primaries) of both the SDR base and HDR rendition.
+    #[arg(long, value_enum, default_value_t = CsArg::P3)]
     color_space: CsArg,
 
     /// Highlight handling.
     #[arg(long, value_enum, default_value_t = HlArg::Clip)]
     highlight: HlArg,
 
-    /// HDR headroom: "auto" (content-aware) or a fixed multiple of SDR white
-    /// that full-scale maps to (e.g. 4.0).
+    /// HDR headroom: peak HDR brightness as a multiple of SDR white. "auto"
+    /// derives it from how far the scene's highlights extend above SDR white
+    /// (2-6x); a number fixes it (e.g. 4.0 = 2 stops).
     #[arg(long, default_value = "auto")]
     hdr_headroom: String,
-
-    /// Luminance percentile mapped to SDR white in auto mode (0-100).
-    #[arg(long, default_value_t = raw2uhdr_core::DEFAULT_AUTO_PERCENTILE)]
-    hdr_white_percentile: f32,
 
     /// Base-image JPEG quality (0-100).
     #[arg(long, default_value_t = 95)]
@@ -103,6 +117,12 @@ enum HlArg {
     Clip,
     Blend,
     Rebuild,
+}
+
+#[derive(Copy, Clone, ValueEnum)]
+enum ToneArg {
+    Luminance,
+    Adobe,
 }
 
 #[derive(Copy, Clone, ValueEnum)]
@@ -300,32 +320,38 @@ fn build_pipeline(cli: &Cli) -> Result<Pipeline<LibRawDeveloper, UltraHdrEncoder
             HlArg::Blend => Highlight::Blend,
             HlArg::Rebuild => Highlight::Rebuild,
         },
-        color_space: match cli.color_space {
-            CsArg::Srgb => ColorSpace::Srgb,
-            CsArg::P3 => ColorSpace::DisplayP3,
-            CsArg::Rec2020 => ColorSpace::Rec2020,
-        },
         exposure_ev: cli.exposure,
+        use_profile: !cli.no_profile,
+        black_clip: cli.black_clip.max(0.0),
         ..DevelopOptions::default()
     };
 
-    let hdr_anchor = if cli.hdr_headroom.eq_ignore_ascii_case("auto") {
-        HdrAnchor::AutoPercentile {
-            percentile: cli.hdr_white_percentile,
-            max_headroom: DEFAULT_MAX_HEADROOM,
-        }
+    let headroom = if cli.hdr_headroom.eq_ignore_ascii_case("auto") {
+        Headroom::Auto { max: DEFAULT_MAX_HEADROOM }
     } else {
         let h: f32 = cli
             .hdr_headroom
             .parse()
             .with_context(|| format!("--hdr-headroom must be \"auto\" or a number, got {:?}", cli.hdr_headroom))?;
-        HdrAnchor::Fixed(h)
+        Headroom::Fixed(h)
+    };
+    let color_space = match cli.color_space {
+        CsArg::Srgb => ColorSpace::Srgb,
+        CsArg::P3 => ColorSpace::DisplayP3,
+        CsArg::Rec2020 => ColorSpace::Rec2020,
     };
 
     Ok(Pipeline {
         developer: LibRawDeveloper::new(options),
+        render: RenderOptions {
+            color_space,
+            headroom,
+            tone: match cli.tone {
+                ToneArg::Luminance => ToneMode::Luminance,
+                ToneArg::Adobe => ToneMode::Adobe,
+            },
+        },
         encoder: UltraHdrEncoder { quality: cli.quality, gainmap_scale: cli.gainmap_scale },
-        hdr_anchor,
         keep_exif: !cli.no_exif,
     })
 }

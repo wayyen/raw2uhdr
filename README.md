@@ -12,22 +12,32 @@ decodes is accepted — see [Supported input formats](#supported-input-formats).
 
 > **Status:** the core CLI is feature-complete — single-file and batch
 > conversion, develop controls (white balance, exposure, color space,
-> highlights), a content-aware HDR anchor, EXIF/orientation carry-over, and
-> parallel directory processing all work end to end, for any raw format LibRaw
-> decodes. Planned next: matching the camera JPEG look (libultrahdr API-1) and a
-> GUI preview. See [`DESIGN.md`](DESIGN.md) for the full design and roadmap.
+> highlights), EXIF/orientation carry-over, and parallel directory processing
+> all work end to end, for any raw format LibRaw decodes. DNGs are rendered
+> with their embedded camera profile, so output grading closely matches the
+> camera's own JPEG. Planned next: a GUI preview. See [`DESIGN.md`](DESIGN.md) for the full design and roadmap.
 
 ## How it works
 
 ```
-DNG ──▶ LibRaw develop ──▶ linear Rec.2020 16-bit ──▶ RGBA half-float
-    ──▶ libultrahdr (API-0: derive SDR + gain map) ──▶ Ultra HDR JPEG
+raw ──▶ LibRaw decode/WB/demosaic (camera RGB) ──▶ DNG profile (scene-linear ProPhoto)
+    ──▶ render: SDR base (tone curve, P3, 8-bit) + HDR (SDR × highlight boost, half-float)
+    ──▶ libultrahdr (API-1: gain map between the two) ──▶ Ultra HDR JPEG
 ```
 
-The HDR rendition is handed to libultrahdr as 64bpp RGBA half-float, linear,
-BT.2100 gamut; libultrahdr tone-maps the SDR base image and computes the gain
-map. Keeping the pipeline linear and high-precision until the encoder is what
-preserves quality. Design rationale lives in [`DESIGN.md`](DESIGN.md).
+For DNGs, the camera profile embedded in the file drives development:
+ForwardMatrix/ColorMatrix interpolation for the shot's white point,
+OpcodeList2 lens-shading gain maps, BaselineExposure, the ProfileGainTableMap
+(the camera's local tone mapping), the LookTable, and the ProfileToneCurve.
+LibRaw alone ignores all of these, which is why plain LibRaw output looks
+flat, dark and vignetted next to the camera JPEG. Other raw formats use
+LibRaw's camera matrix with a generic tone curve.
+
+We render the SDR base ourselves (full contrast, white at 255) and an HDR
+rendition that equals it in shadows and midtones and lifts only highlights,
+by up to the HDR headroom. The headroom comes from how far the camera recorded
+highlights above SDR white. libultrahdr then encodes the gain map between the
+two. Design rationale lives in [`DESIGN.md`](DESIGN.md).
 
 ## Requirements
 
@@ -35,7 +45,7 @@ preserves quality. Design rationale lives in [`DESIGN.md`](DESIGN.md).
 - **CMake** 3.31+ and a **C/C++ toolchain** (GCC or Clang) — to build the
   vendored libultrahdr.
 - **libclang** — for `bindgen`. If it is not auto-detected, set `LIBCLANG_PATH`
-  (e.g. `LIBCLANG_PATH=/usr/lib/llvm/22/lib64`).
+  (e.g. `LIBCLANG_PATH=/usr/lib/llvm/23/lib64`).
 - **nasm** — for libultrahdr's vendored libjpeg-turbo SIMD build.
 - **git** — the native libraries are git submodules.
 
@@ -109,11 +119,14 @@ raw2uhdr [OPTIONS] <INPUTS>...
   -j, --jobs <N>                   # parallel conversions (default: # CPUs)
       --wb <camera|auto>           # white balance
       --wb-mul <R> <G> <B> <G2>    # custom WB multipliers (overrides --wb)
-      --exposure <EV>              # exposure compensation in stops (e.g. -1.0, +1.5)
-      --color-space <srgb|p3|rec2020>  # output primaries (default: rec2020)
-      --highlight <clip|blend|rebuild> # highlight handling (blend recovers more HDR)
-      --hdr-headroom <auto|F>      # HDR headroom: content-aware (default) or fixed multiple
-      --hdr-white-percentile <P>   # luminance percentile = SDR white in auto mode (default 99)
+      --exposure <EV>              # exposure compensation in stops, on top of the camera baseline
+      --black-clip <N>             # shadow black clip, Adobe "Shadows" units (default 5; 0 = none)
+      --tone <luminance|adobe>     # tone curve on colour: keep ratios (camera-JPEG-like, default)
+                                   # or Adobe RGB-tone (Lightroom-like, more saturated)
+      --no-profile                 # ignore the DNG camera profile (neutral rendering)
+      --color-space <srgb|p3|rec2020>  # output primaries (default: p3)
+      --highlight <clip|blend|rebuild> # highlight handling
+      --hdr-headroom <auto|F>      # peak HDR brightness vs SDR white: auto (2-6x) or fixed
       --quality <0-100>            # base JPEG quality (default: 95)
       --gainmap-scale <N>          # gain-map downscale factor
       --no-exif                    # do not copy camera EXIF into the output
@@ -133,15 +146,16 @@ focal length) is copied into the output by default; pass `--no-exif` to omit it.
 Orientation is baked into the pixels during development, so the output is always
 upright (EXIF orientation = 1).
 
-Develop adjustments (WB, exposure, color space, highlights) change the rendition
-but never affect HDR output — the gain map is always computed from whatever you
-produce.
-
-> **Note on look:** development is intentionally neutral (linear, no camera tone
-> curve), so the result will not match your camera's JPEG grading. `--exposure`
-> and `--hdr-headroom` are the main brightness/HDR levers. Shaping the SDR look
-> to resemble a finished camera JPEG (tone curve, contrast, saturation) needs the
-> caller-supplied-SDR encode path (libultrahdr API-1), a planned enhancement.
+> **Note on look:** DNGs that carry a camera profile (e.g. Pixel phones) are
+> rendered the way that profile intends. Validated against Pixel 10 Pro XL
+> RAW+JPEG pairs, the SDR base matches the camera JPEG's brightness, contrast
+> and shadow depth to within ~1-2 L* (median and 5th percentile), with neutral
+> white balance and per-hue saturation within ~5% (sky blues ~15% richer). The HDR lift closely tracks the camera's gain map outdoors.
+> Not reproduced: lens distortion correction (OpcodeList3 WarpRectilinear), so
+> framing differs slightly, and the camera's own sharpening/noise reduction.
+> Raws without a profile get LibRaw colour, +0.5 EV and a generic camera-like
+> tone curve. For HDR-capable displays, `--hdr-headroom` controls how bright
+> highlights go.
 
 ## Supported input formats
 
@@ -197,11 +211,11 @@ crates/
   uhdr-sys/     FFI bindings to libultrahdr (bindgen) + vendored/system build
   uhdr/         safe RAII wrapper over uhdr-sys (encode + metadata probe)
   libraw-sys/   FFI bindings to LibRaw (bindgen) + vendored/system build
-  libraw-dev/   safe LibRaw integration: develop raw -> linear RGB16 + EXIF
-  core/         conversion pipeline: Developer/HdrEncoder traits, anchor, Pipeline
+  libraw-dev/   safe LibRaw integration + DNG profile rendering -> scene-linear ProPhoto
+  core/         pipeline: Developer/HdrEncoder traits, SDR/HDR renderer, Pipeline
   cli/          the raw2uhdr binary
 third_party/
-  libultrahdr/  submodule, pinned to v1.4.0
+  libultrahdr/  submodule, pinned to v2.0.2
   LibRaw/       submodule, pinned to 0.22.1
 ```
 
@@ -212,4 +226,4 @@ raw formats or output encoders can be added without touching the core. See
 ## License
 
 Apache-2.0. Vendored dependencies retain their own licenses: libultrahdr
-(Apache-2.0), LibRaw (LGPL-2.1 / CDDL-1.0), libjpeg-turbo (BSD/IJG).
+(Apache-2.0 or MIT), LibRaw (LGPL-2.1 / CDDL-1.0), libjpeg-turbo (BSD/IJG).
