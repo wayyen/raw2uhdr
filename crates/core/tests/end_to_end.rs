@@ -51,8 +51,8 @@ fn dng_converts_to_valid_ultrahdr() {
         assert_eq!(o.value.get_uint(0), Some(1), "output orientation should be 1");
     }
 
-    // Gain-map metadata sanity (M4 validation): the HDR capacity must reflect
-    // our content-aware headroom — above SDR (1.0) and within the cap.
+    // Gain-map metadata sanity: the HDR capacity must reflect the rendered
+    // headroom — above SDR (1.0) and within the auto cap.
     let info = uhdr::probe(&jpeg).expect("probe gain-map metadata");
     eprintln!(
         "base {}x{}, gainmap {}x{}, hdr_capacity_max {:.3}, max_content_boost {:.3}",

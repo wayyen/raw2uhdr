@@ -9,16 +9,25 @@ making changes.
 A Rust workspace that converts DNG raw files into Ultra HDR JPEGs. The pipeline:
 
 ```
-DNG ─▶ LibRaw develop (linear, Rec.2020, 16-bit) ─▶ RGBA half-float (BT.2100)
-    ─▶ libultrahdr API-0 (derives SDR base + gain map) ─▶ Ultra HDR JPEG
+raw ─▶ LibRaw decode/WB/demosaic (camera RGB, 16-bit)
+    ─▶ DNG camera profile (libraw-dev) ─▶ scene-linear ProPhoto f32
+    ─▶ render (core): SDR base RGBA8 + HDR = SDR × highlight boost (half-float)
+    ─▶ libultrahdr API-1 (gain map between them) ─▶ Ultra HDR JPEG
 ```
 
 Core decisions (locked; do not silently change):
 - **Rust** core linking LibRaw and libultrahdr via FFI.
-- **API-0**: hand libultrahdr the HDR rendition; it derives the SDR base and
-  gain map. (The encoder trait is designed so API-1/3 can be added later.)
-- **HDR rendition format**: 64bpp RGBA half-float, linear, BT.2100 gamut. SDR
-  white maps to linear `1.0`; nominal half-float range is `[0.0 .. 10000/203]`.
+- **API-1** (since the colour-grading work; was API-0): we render both the SDR
+  base and the HDR rendition; libultrahdr computes the gain map. API-0's own
+  tonemap gave a flat SDR base that never reached white (DESIGN.md OQ-5).
+- **DNG camera profile fidelity**: DNGs are developed per the DNG SDK's
+  semantics (ForwardMatrix interpolation, OpcodeList2 GainMap, HueSatMap,
+  ProfileGainTableMap, BaselineExposure, LookTable, ProfileToneCurve with
+  RGB-tone). Validate grading changes against camera RAW+JPEG pairs.
+- **Renditions**: Display-P3 by default. SDR = 8-bit RGBA, sRGB transfer. HDR =
+  64bpp RGBA half-float, linear, SDR white = `1.0`, nominal range
+  `[0.0 .. 10000/203]`, and always a scalar multiple (≥1) of the SDR colour
+  (single-channel gain map).
 
 ## Build & test
 
@@ -26,7 +35,7 @@ This host needs `LIBCLANG_PATH` for `bindgen` (libclang is under a versioned
 LLVM path that clang-sys does not auto-detect):
 
 ```bash
-export LIBCLANG_PATH=/usr/lib/llvm/22/lib64
+export LIBCLANG_PATH=/usr/lib/llvm/23/lib64
 
 cargo build --workspace
 cargo test  --workspace
@@ -50,10 +59,10 @@ Native-lib provisioning (both `*-sys` crates share the same logic in `build.rs`)
 | `crates/uhdr-sys` | bindgen FFI to libultrahdr; vendored cmake build | done (M0) |
 | `crates/uhdr` | safe RAII wrapper over uhdr-sys | minimal (M0) |
 | `crates/libraw-sys` | bindgen FFI to LibRaw C API; vendored cc build | done (M0) |
-| `crates/libraw-dev` | safe LibRaw integration: develop raw → HDR | stub (M1) |
-| `crates/core` | format-agnostic pipeline + traits | stub (M1+) |
-| `crates/cli` | the `raw2uhdr` binary | placeholder (M2) |
-| `third_party/libultrahdr` | submodule @ v1.4.0 | pinned |
+| `crates/libraw-dev` | safe LibRaw integration + DNG profile rendering | done |
+| `crates/core` | format-agnostic pipeline, traits, SDR/HDR renderer | done |
+| `crates/cli` | the `raw2uhdr` binary | done |
+| `third_party/libultrahdr` | submodule @ v2.0.2 | pinned |
 | `third_party/LibRaw` | submodule @ 0.22.1 | pinned |
 
 ## Architecture & conventions
@@ -81,6 +90,9 @@ These fixes live in the `build.rs` files; don't regress them:
 - libultrahdr is built with `BUILD_SHARED_LIBS=OFF` + `UHDR_BUILD_DEPS=ON`, so
   it builds libjpeg-turbo from source; we link the resulting static `libjpeg.a`.
   The combined `libuhdr.a` bundles `core` + `image_io` objects.
+- libultrahdr v2 defaults `UHDR_ENABLE_HEIF=ON` (git-clones libheif at
+  configure time); we force it and SMPTE 2094-50 OFF to stay hermetic, and
+  write both ISO 21496-1 and XMP gain-map metadata for viewer compatibility.
 - bindgen on LibRaw uses `.layout_tests(false)` and opaque C++ datastream types
   (FILE / `LibRaw_*_datastream` cannot be laid out and aren't used via the C API).
 
@@ -100,13 +112,13 @@ These fixes live in the `build.rs` files; don't regress them:
 ## Open questions to be resolved during implementation
 
 Tracked in `DESIGN.md` §11. The high-impact ones:
-- **OQ-1** normalization anchor (what linear value = SDR white) — biggest
-  quality knob, will be exposed as `--hdr-white`.
-- **OQ-2** highlight handling default (clip/blend/rebuild).
-- **OQ-3** splicing EXIF without disturbing libultrahdr's MPF/XMP segments.
+- Lens distortion correction (OpcodeList3 WarpRectilinear) is not applied.
+- Raws without a DNG profile use a generic tone curve and +0.5 EV baseline;
+  per-camera tuning would need reference pairs.
 
 ## Roadmap (see DESIGN.md §12)
 
 M0 skeleton + FFI smoke test **(done)** → M1 develop path (one DNG end-to-end) →
-M2 CLI → M3 batch/parallelism/quality knobs → M4 validation. Future: GUI preview
-crate, more raw formats, API-1/3 encode paths.
+M2 CLI → M3 batch/parallelism/quality knobs → M4 validation → M5 all LibRaw
+formats → M6 colour grading (DNG profile rendering, API-1). Future: GUI preview
+crate, OpcodeList3 distortion correction.

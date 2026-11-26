@@ -301,7 +301,9 @@ name = "libraw-dev"
 version = "0.1.0"
 dependencies = [
  "libraw-sys",
+ "rayon",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -436,6 +438,7 @@ dependencies = [
  "half",
  "kamadak-exif",
  "libraw-dev",
+ "rayon",
  "thiserror",
  "tracing",
  "uhdr",
