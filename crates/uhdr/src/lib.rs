@@ -144,6 +144,13 @@ impl Encoder {
         check(info)
     }
 
+    /// Choose a three-channel (per R/G/B) or single-channel gain map.
+    pub fn set_multi_channel_gainmap(&mut self, multi: bool) -> Result<()> {
+        let info =
+            unsafe { uhdr_sys::uhdr_enc_set_using_multi_channel_gainmap(self.ptr, multi as i32) };
+        check(info)
+    }
+
     /// Recommend the min/max content boost (linear) for the gain map.
     pub fn set_min_max_content_boost(&mut self, min: f32, max: f32) -> Result<()> {
         let info = unsafe { uhdr_sys::uhdr_enc_set_min_max_content_boost(self.ptr, min, max) };

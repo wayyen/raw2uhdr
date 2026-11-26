@@ -27,6 +27,9 @@ fn main() {
 
     println!("cargo:rerun-if-changed=wrapper.h");
     println!("cargo:rerun-if-changed=build.rs");
+    // Rebuild the vendored lib when the submodule is bumped.
+    println!("cargo:rerun-if-changed={}", submodule.join("ultrahdr_api.h").display());
+    println!("cargo:rerun-if-changed={}", submodule.join("CMakeLists.txt").display());
     println!("cargo:rerun-if-env-changed=UHDR_LIB_DIR");
     println!("cargo:rerun-if-env-changed=UHDR_INCLUDE_DIR");
     println!("cargo:rerun-if-env-changed=DNG2UHDR_USE_SYSTEM");
@@ -73,9 +76,10 @@ fn main() {
         println!("cargo:warning=uhdr-sys: building vendored libultrahdr (static) from {}", submodule.display());
 
         let dst = cmake::Config::new(&submodule)
-            // libultrahdr pins libjpeg-turbo 3.0.1, whose CMakeLists declares a
+            // libjpeg-turbo (pinned by libultrahdr; 3.0.1 in v1.x) declared a
             // pre-3.5 minimum that modern CMake rejects. This env var is honored
-            // by CMake >= 3.31 and inherited by the turbojpeg ExternalProject.
+            // by CMake >= 3.31 and inherited by the turbojpeg ExternalProject;
+            // kept as a harmless guard for v2's 3.1.0 pin.
             .env("CMAKE_POLICY_VERSION_MINIMUM", "3.5")
             .define("BUILD_SHARED_LIBS", "OFF")
             // Build libjpeg-turbo from source so the static build is hermetic.
@@ -84,8 +88,18 @@ fn main() {
             .define("UHDR_ENABLE_GLES", "OFF")
             .define("UHDR_ENABLE_INTRINSICS", "ON")
             .define("UHDR_BUILD_JAVA", "OFF")
+            .define("UHDR_BUILD_EXAMPLES", "OFF")
+            // v2 defaults HEIF/AVIF on, which git-clones and builds libheif at
+            // configure time. We only emit JPEG, so keep the build hermetic.
+            .define("UHDR_ENABLE_HEIF", "OFF")
+            .define("UHDR_ENABLE_SMPTE2094_50", "OFF")
+            // Write both gain-map metadata flavours (ISO 21496-1 + Adobe hdrgm
+            // XMP), as Pixel cameras do: older Android/Chrome/Photos builds
+            // only understand the XMP form.
+            .define("UHDR_WRITE_ISO", "ON")
+            .define("UHDR_WRITE_XMP", "ON")
             .define("CMAKE_BUILD_TYPE", "Release")
-            // libultrahdr 1.4.0 uses `uint8_t` in headers without including
+            // libultrahdr uses `uint8_t` in headers without including
             // <cstdint>, relying on transitive includes that newer libstdc++
             // (GCC 13+) no longer provides. Force-include it for all TUs.
             .cxxflag("-include")

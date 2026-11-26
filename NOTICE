@@ -20,7 +20,8 @@ and redistribution of the corresponding component.
 libultrahdr
     https://github.com/google/libultrahdr
     Copyright The Android Open Source Project
-    Licensed under the Apache License, Version 2.0.
+    Licensed under the Apache License, Version 2.0, or the MIT License, at
+    your option (dual-licensed since v1.5).
 
     Includes Gain Map technology under license by Adobe. See
     third_party/libultrahdr/adobe-hdr-gain-map-license/NOTICE.
